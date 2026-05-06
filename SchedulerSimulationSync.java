@@ -5,6 +5,9 @@ import java.util.HashMap;
 import java.util.Random;
 import java.util.ArrayList;
 import java.util.List;
+import  java.util.concurrent.semaphore;
+import java.util.contcurrent.locks.ReenreantLocks;
+
 
 // ANSI Color Codes for enhanced terminal output
 class Colors {
@@ -36,36 +39,56 @@ class SharedResources {
     public static long totalWaitingTime = 0;       // Shared accumulator - NEEDS PROTECTION!
     public static List<String> executionLog = new ArrayList<>();  // Shared list - NEEDS PROTECTION!
     
-    // TODO #1: Add a ReentrantLock(s) here to protect critical sections
-    // Example: public static final ReentrantLock lock = new ReentrantLock();
-    
-    // TODO #2: Add a Semaphore to limit concurrent process execution
-    // Example: public static final Semaphore cpuSemaphore = new Semaphore(1);
+   public static final ReentrantLock counterLock = new ReentrantLock();
+
+public static final ReentrantLock logLock = new ReentrantLock();
+
+public static final Semaphore cpuSemaphore = new Semaphore(1);
     
     // Method to increment context switch counter
     public static void incrementContextSwitch() {
-        // TODO: Protect this critical section with a lock
-        // RACE CONDITION: Multiple threads might read and write simultaneously!
+
+    counterLock.lock();
+
+    try {
         contextSwitchCount++;
+    } finally {
+        counterLock.unlock();
     }
+}
     
     // Method to increment completed process counter
     public static void incrementCompletedProcess() {
-        // TODO: Protect this critical section with a lock
+
+    counterLock.lock();
+
+    try {
         completedProcessCount++;
+    } finally {
+        counterLock.unlock();
     }
-    
+}
     // Method to add waiting time
-    public static void addWaitingTime(long time) {
-        // TODO: Protect this critical section with a lock
+   public static void addWaitingTime(long time) {
+
+    counterLock.lock();
+
+    try {
         totalWaitingTime += time;
+    } finally {
+        counterLock.unlock();
     }
+}
     
     // Method to log execution
-    public static void logExecution(String message) {
-        // TODO: Protect this critical section with a lock
-        // RACE CONDITION: ArrayList is not thread-safe!
+   public static void logExecution(String message) {
+
+    logLock.lock();
+
+    try {
         executionLog.add(message);
+    } finally {
+        logLock.unlock();
     }
 }
 
@@ -92,9 +115,9 @@ class Process implements Runnable {
     
     @Override
     public void run() {
-        // TODO #3: Acquire CPU semaphore before executing
-        // This ensures only allowed number of processes run simultaneously
-        
+      try {
+    SharedResources.cpuSemaphore.acquire();
+    
         try {
             if (startTime == -1) {
                 startTime = System.currentTimeMillis();
@@ -154,9 +177,14 @@ class Process implements Runnable {
             }
             System.out.println();
             
-        } finally {
-            // TODO #4: Release CPU semaphore here
-            // Always release in finally block to prevent deadlocks!
+        } 
+     } catch (InterruptedException e) {
+    System.out.println("Process interrupted.");
+}   
+        finally {
+          finally {
+    SharedResources.cpuSemaphore.release();
+
         }
     }
     
